@@ -2,3 +2,6 @@
 /pages
 /urls.txt
 /url.txt
+*.idea
+*venv
+*__pycache__
