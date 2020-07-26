@@ -5,14 +5,13 @@ import json
 import prepare_data
 import numpy as np
 import xgboost as xgb
+import pandas as pd
 
 app = Flask(__name__)
 
 MODEL_PATH = "xgb.joblib"
 SCALE_PATH = "scale.joblib"
 SCALE_TARGET_PATH = "scale_target.joblib"
-
-COLUMNS = ["square", "floor", "floors"]
 
 with open(MODEL_PATH, "rb") as fid:
     model = joblib.load(fid)
@@ -35,26 +34,24 @@ def generate():
     raw_data = request.form
     data = [
         int(raw_data[column])
-        for column in COLUMNS
+        for column in ["square", "floor", "floors"]
     ]
 
     address, subway = raw_data['address'], raw_data['subway']
+
+    lat, lon  = prepare_data.house_geo(address) # получение координат дома
+    data.extend([lat, lon])
     data.append(prepare_data.center_distance(address)) # рассчет расстояния до центра
     data.append(prepare_data.subway_distance(address, subway)) # расчет расстояния до метро
-    lat, lon  = prepare_data.house_geo(address) # получение координат дома
     data.append(prepare_data.azimute(lon, lat)) # вычисление азимута
 
-    print(data)
-    labels = ["square", "floor", "floors", "address", "subway"]
-
-    #TODO
-    # dtest = xgb.DMatrix(data, labels)
-
-    # pred = scale.transform(model.predict(np.array(dtest)))
-    # print(pred)
-    # predicted = scale_target.inverse_transform(pred)
-
-    response = json.dumps({'predicted': predicted})
+    df = pd.DataFrame([data], columns=labels)
+    pred = model.predict(scale.transform([data]))
+    predicted = scale_target.inverse_transform(pred)
+    price = round(predicted[0]*data[0], 2)
+    response = json.dumps({'predicted price per square meter': str(predicted[0]),
+                            'predicted price': str(price)
+                })
     return response
 
 
